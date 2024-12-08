@@ -158,10 +158,11 @@ if file is not None:
 
         # Filter the data based on the selected starting date
         df_filtered = df_resampled[df_resampled.index >= pd.Timestamp(start_date)]
-
+        print(df_filtered)
         # Check if there's enough data for the selected starting date
         if len(df_filtered) < 30:
             st.warning("Not enough data after the selected starting date to display a 30-day window.")
         else:
             # Simulate and display the dynamic candlestick chart with 30 window size and 10-second delay
             simulate_candlestick_chart(df_filtered, window_size=30, interval=0.5)
+        print(df_filtered)
