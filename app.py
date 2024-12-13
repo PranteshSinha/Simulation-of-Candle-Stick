@@ -8,13 +8,22 @@ from datetime import datetime
 import numpy as np
 # pip install pricehub
 from pricehub import get_ohlc
+from collections import defaultdict
 
 # Import pattern detection functions
-from Flags import find_flags_pennants_trendline, FlagPattern
+from Flags import find_flags_pennants_trendline, FlagPattern, fit_trendlines_high_low
 
 # Set the matplotlib backend for Streamlit
 import matplotlib
 matplotlib.use('Agg')
+
+
+def append_to_csv(entry, file_path):
+    # Convert the entry to a DataFrame
+    df_entry = pd.DataFrame([entry], columns=["Base Time", "Confirmation Time", "Confirmation Index", "Type", "Trend"])
+    
+    # Append the entry to the CSV file
+    df_entry.to_csv(file_path, mode='a', header=not pd.io.common.file_exists(file_path), index=False)
 
 # Function to process the data
 def process_data(df, freq='1d'):
@@ -57,8 +66,48 @@ def process_data(df, freq='1d'):
     # No additional resampling needed as data is already fetched with the correct interval
     return df
 
+def plot_patterns(ax, df_window, bull_flags, bear_flags, start_idx, end_idx):
+    """
+    Overlay detected patterns onto the candlestick chart.
+    """
+    # Get the start and end timestamps of the current window
+    start_time = df_window.index[0]
+    end_time = df_window.index[-1]
+    for flag in bull_flags:
+        # Map indices to timestamps
+        # print(f"{start_idx}.....{flag.base_x}......{flag.conf_x}")
+        base_time = df_window.index[flag.base_x - start_idx] if flag.base_x >= start_idx and flag.base_x < end_idx else None
+        conf_time = df_window.index[flag.conf_x - start_idx] if flag.conf_x >= start_idx and flag.conf_x < end_idx else None
+        # print(f"{base_time} {conf_time}")
+        if base_time and conf_time and start_time <= base_time <= end_time and start_time <= conf_time <= end_time:
+            plt.style.use('dark_background')
+            mpf.plot(
+                df_window, alines = dict(alines = [[(base_time, flag.base_y), (df_window.index[flag.tip_x - start_idx], flag.tip_y)],
+                [(df_window.index[flag.tip_x - start_idx], flag.resist_intercept), (conf_time, flag.resist_intercept + flag.resist_slope * flag.flag_width)],
+                [(df_window.index[flag.tip_x - start_idx], flag.support_intercept), (conf_time, flag.support_intercept + flag.support_slope * flag.flag_width)]],
+                colors = ['g', 'b', 'b']), type='candle', style='charles', ax=ax
+            )
+
+            
+
+    for flag in bear_flags:
+        # Map indices to timestamps
+        # print(f"{start_idx}.....{flag.base_x}......{flag.conf_x}")
+        base_time = df_window.index[flag.base_x - start_idx] if flag.base_x >= start_idx and flag.base_x < end_idx else None
+        conf_time = df_window.index[flag.conf_x - start_idx] if flag.conf_x >= start_idx and flag.conf_x < end_idx else None
+        # print(f"{base_time} {conf_time}")
+        if base_time and conf_time and start_time <= base_time <= end_time and start_time <= conf_time <= end_time:
+            plt.style.use('dark_background')
+            mpf.plot(
+                df_window, alines = dict(alines = [[(base_time, flag.base_y), (df_window.index[flag.tip_x - start_idx], flag.tip_y)],
+                [(df_window.index[flag.tip_x - start_idx], flag.resist_intercept), (conf_time, flag.resist_intercept + flag.resist_slope * flag.flag_width)],
+                [(df_window.index[flag.tip_x - start_idx], flag.support_intercept), (conf_time, flag.support_intercept + flag.support_slope * flag.flag_width)]],
+                colors = ['r', 'b', 'b']), type='candle', style='charles', ax=ax
+            )
+        
+
 # Function to simulate the dynamic candlestick chart with flags and pennants
-def simulate_candlestick_chart_with_patterns(df, bull_flags, bear_flags, window_size=30, interval=0.5):
+def simulate_candlestick_chart_with_flags(df, bull_flags, bear_flags, patterns, window_size=30, interval=0.5):
     fig, (ax_main, ax_volume) = plt.subplots(
         nrows=2,
         ncols=1,
@@ -70,6 +119,9 @@ def simulate_candlestick_chart_with_patterns(df, bull_flags, bear_flags, window_
     plt.ion()
     plot_placeholder = st.empty()
 
+    bull_flag_queue = []
+    bear_flag_queue = []
+    csv = "flag_results.csv"
     for start_idx in range(len(df) - window_size + 1):
         end_idx = start_idx + window_size
         df_window = df.iloc[start_idx:end_idx]
@@ -84,6 +136,56 @@ def simulate_candlestick_chart_with_patterns(df, bull_flags, bear_flags, window_
             ax=ax_main,  # Correct argument for the main chart
             volume=ax_volume,  # Correct argument for the volume subplot
         )
+
+        if patterns:
+            plot_patterns(ax_main, df_window, bull_flags, bear_flags, start_idx, end_idx)
+        else:
+            plot_patterns(ax_main, df_window, bull_flags, bear_flags, start_idx, end_idx)
+            start_time = df_window.index[0]
+            end_time = df_window.index[-1]
+            for flag in bull_flags:
+                base_time = df_window.index[flag.base_x - start_idx] if flag.base_x >= start_idx and flag.base_x < end_idx else None
+                conf_time = df_window.index[flag.conf_x - start_idx] if flag.conf_x >= start_idx and flag.conf_x < end_idx else None
+                if base_time and conf_time and start_time <= base_time <= end_time and start_time <= conf_time <= end_time and not flag.is_processed:
+                    bull_flag_queue.append([base_time, conf_time, flag.conf_x, "Bull"])
+                    flag.is_processed = True
+
+                    
+            for flag in bear_flags:
+                base_time = df_window.index[flag.base_x - start_idx] if flag.base_x >= start_idx and flag.base_x < end_idx else None
+                conf_time = df_window.index[flag.conf_x - start_idx] if flag.conf_x >= start_idx and flag.conf_x < end_idx else None
+                if base_time and conf_time and start_time <= base_time <= end_time and start_time <= conf_time <= end_time and not flag.is_processed:
+                    bear_flag_queue.append([base_time, conf_time, flag.conf_x, "Bear"])
+                    flag.is_processed = True
+            
+            
+            while len(bull_flag_queue) > 0 and bull_flag_queue[0][2] + 20 == end_idx:
+                price_now = df['Close'].iloc[end_idx - 1]
+                price_then = df['Close'].iloc[end_idx - 21]
+                print(f"{price_now} {price_then}")
+                if price_now < price_then:
+                    isflag = "bearish"
+                else:
+                    isflag = "bullish"
+                bull_flag_queue[0].append(isflag)
+                append_to_csv(bull_flag_queue[0], csv)
+                bull_flag_queue.pop(0)
+            
+            
+            while len(bear_flag_queue) > 0 and bear_flag_queue[0][2] + 20 == end_idx:
+                print(f"{bear_flag_queue[0][2]} {end_idx}")
+                price_now = df['Close'].iloc[end_idx - 1]
+                price_then = df['Close'].iloc[end_idx - 21]
+                print(f"{price_now} {price_then}")
+                if price_now < price_then:
+                    isflag = "bearish"
+                else:
+                    isflag = "bullish"
+                bear_flag_queue[0].append(isflag)
+                append_to_csv(bear_flag_queue[0], csv)
+                bear_flag_queue.pop(0)
+            
+            
 
         plot_placeholder.pyplot(fig)
         time.sleep(interval)
@@ -101,9 +203,10 @@ file = get_ohlc(
     broker="binance_spot",
     symbol="BTCUSDT",
     interval=freq_map[option],
-    start="2024-10-01",
-    end="2024-12-10"
+    start="2024-04-01",
+    end="2024-12-14"
 )
+
 st.write(f'You selected: {option} timeframe')
 df_processed = process_data(file, freq=freq_map[option])
 if df_processed is not None:
@@ -118,11 +221,15 @@ if df_processed is not None:
     df_filtered = df_processed[df_processed.index >= pd.Timestamp(start_date)]
 
     if len(df_filtered) < 100:
-        st.warning("Not enough data after the selected starting date to display a 30-day window.")
+        st.warning("Not enough data after the selected starting date to display a 100-candle window.")
     else:
         # Detect flags and pennants
         data_array = df_filtered['Close'].to_numpy()
         bull_flags, bear_flags, bull_pennants, bear_pennants = find_flags_pennants_trendline(data_array, 10)
-
         # Simulate with detected patterns
-        simulate_candlestick_chart_with_patterns(df_filtered, bull_flags, bear_flags, window_size=100, interval=0.5)
+        if freq_map[option] == '5m' or freq_map[option] == '15m':
+            simulate_candlestick_chart_with_flags(df_filtered, bull_flags, bear_flags, True, window_size=100, interval=0)
+        else:
+            simulate_candlestick_chart_with_flags(df_filtered, bull_flags, bear_flags, False, window_size=100, interval=0)
+
+    

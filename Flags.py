@@ -221,6 +221,8 @@ class FlagPattern:
     resist_intercept: float = -1.
     resist_slope: float = -1.
 
+    is_processed: bool = False
+
 def check_bear_pattern_pips(pending: FlagPattern, data: np.array, i:int, order:int):
 
     # Find max price since local bottom, (top of pole)
