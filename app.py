@@ -208,6 +208,18 @@ file = get_ohlc(
 )
 
 st.write(f'You selected: {option} timeframe')
+
+st.title("Pattern Detection")
+
+# Dropdown for pattern selection
+pattern_option = st.selectbox(
+    "Select a Pattern",
+    ["Flag", "Pennant", "Head and Shoulders"]
+)
+
+# Display selected pattern
+st.write(f"You selected: **{pattern_option}**")
+
 df_processed = process_data(file, freq=freq_map[option])
 if df_processed is not None:
     min_date = df_processed.index.min().date()
@@ -225,11 +237,25 @@ if df_processed is not None:
     else:
         # Detect flags and pennants
         data_array = df_filtered['Close'].to_numpy()
-        bull_flags, bear_flags, bull_pennants, bear_pennants = find_flags_pennants_trendline(data_array, 10)
-        # Simulate with detected patterns
-        if freq_map[option] == '5m' or freq_map[option] == '15m':
-            simulate_candlestick_chart_with_flags(df_filtered, bull_flags, bear_flags, True, window_size=100, interval=0)
+        if pattern_option == 'Flag':
+            bull_flags, bear_flags, bull_pennants, bear_pennants = find_flags_pennants_trendline(data_array, 10)
+            # Simulate with detected patterns
+            if freq_map[option] == '5m' or freq_map[option] == '15m':
+                simulate_candlestick_chart_with_flags(df_filtered, bull_flags, bear_flags, True, window_size=100, interval=0)
+            else:
+                simulate_candlestick_chart_with_flags(df_filtered, bull_flags, bear_flags, False, window_size=100, interval=0)
+        
+        elif pattern_option == 'Pennant':
+            bull_flags, bear_flags, bull_pennants, bear_pennants = find_flags_pennants_trendline(data_array, 10)
+            print(bull_pennants)
+            print(bear_pennants)
+            # Simulate with detected patterns
+            if freq_map[option] == '5m' or freq_map[option] == '15m':
+                simulate_candlestick_chart_with_flags(df_filtered, bull_pennants, bear_pennants, True, window_size=100, interval=0)
+            else:
+                simulate_candlestick_chart_with_flags(df_filtered, bull_pennants, bear_pennants, False, window_size=100, interval=0)
+        
         else:
-            simulate_candlestick_chart_with_flags(df_filtered, bull_flags, bear_flags, False, window_size=100, interval=0)
+            pass
 
     
