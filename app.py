@@ -12,7 +12,7 @@ from collections import defaultdict
 
 # Import pattern detection functions
 from Flags import find_flags_pennants_trendline, FlagPattern, fit_trendlines_high_low
-
+from hs_ihs import find_hs_patterns
 # Set the matplotlib backend for Streamlit
 import matplotlib
 matplotlib.use('Agg')
@@ -66,7 +66,7 @@ def process_data(df, freq='1d'):
     # No additional resampling needed as data is already fetched with the correct interval
     return df
 
-def plot_patterns(ax, df_window, bull_flags, bear_flags, start_idx, end_idx):
+def plot_flags_pennats(ax, df_window, bull_flags, bear_flags, start_idx, end_idx):
     """
     Overlay detected patterns onto the candlestick chart.
     """
@@ -75,7 +75,7 @@ def plot_patterns(ax, df_window, bull_flags, bear_flags, start_idx, end_idx):
     end_time = df_window.index[-1]
     for flag in bull_flags:
         # Map indices to timestamps
-        # print(f"{start_idx}.....{flag.base_x}......{flag.conf_x}")
+        print(f"{start_idx}.....{flag.base_x}......{flag.conf_x}")
         base_time = df_window.index[flag.base_x - start_idx] if flag.base_x >= start_idx and flag.base_x < end_idx else None
         conf_time = df_window.index[flag.conf_x - start_idx] if flag.conf_x >= start_idx and flag.conf_x < end_idx else None
         # print(f"{base_time} {conf_time}")
@@ -92,7 +92,7 @@ def plot_patterns(ax, df_window, bull_flags, bear_flags, start_idx, end_idx):
 
     for flag in bear_flags:
         # Map indices to timestamps
-        # print(f"{start_idx}.....{flag.base_x}......{flag.conf_x}")
+        print(f"{start_idx}.....{flag.base_x}......{flag.conf_x}")
         base_time = df_window.index[flag.base_x - start_idx] if flag.base_x >= start_idx and flag.base_x < end_idx else None
         conf_time = df_window.index[flag.conf_x - start_idx] if flag.conf_x >= start_idx and flag.conf_x < end_idx else None
         # print(f"{base_time} {conf_time}")
@@ -104,7 +104,51 @@ def plot_patterns(ax, df_window, bull_flags, bear_flags, start_idx, end_idx):
                 [(df_window.index[flag.tip_x - start_idx], flag.support_intercept), (conf_time, flag.support_intercept + flag.support_slope * flag.flag_width)]],
                 colors = ['r', 'b', 'b']), type='candle', style='charles', ax=ax
             )
-        
+
+def plot_hs_ihs(ax, df_window, hs_patterns, ihs_patterns, start_idx, end_idx):
+    """
+    Overlay detected patterns onto the candlestick chart.
+    """
+    # Get the start and end timestamps of the current window
+    start_time = df_window.index[0]
+    end_time = df_window.index[-1]
+    for pattern in hs_patterns:
+        # Map indices to timestamps
+        print(f"{start_idx}.....{pattern.start_i}......{pattern.break_i}")
+        start_time = df_window.index[pattern.start_i - start_idx] if pattern.start_i >= start_idx and pattern.start_i < end_idx else None
+        break_time = df_window.index[pattern.break_i - start_idx] if pattern.break_i >= start_idx and pattern.break_i < end_idx else None
+        # print(f"{start_time} {break_time}")
+        if start_time and break_time and start_time <= start_time <= end_time and start_time <= break_time <= end_time:
+            plt.style.use('dark_background')
+            l0 = [(df_window.index[pattern.start_i - start_idx], pattern.neck_start), (df_window.index[pattern.l_shoulder - start_idx], pattern.l_shoulder_p)]
+            l1 = [(df_window.index[pattern.l_shoulder - start_idx], pattern.l_shoulder_p), (df_window.index[pattern.l_armpit - start_idx], pattern.l_armpit_p)]
+            l2 = [(df_window.index[pattern.l_armpit - start_idx], pattern.l_armpit_p ), (df_window.index[pattern.head - start_idx], pattern.head_p)]
+            l3 = [(df_window.index[pattern.head - start_idx], pattern.head_p ), (df_window.index[pattern.r_armpit - start_idx], pattern.r_armpit_p)]
+            l4 = [(df_window.index[pattern.r_armpit - start_idx], pattern.r_armpit_p ), (df_window.index[pattern.r_shoulder - start_idx], pattern.r_shoulder_p)]
+            l5 = [(df_window.index[pattern.r_shoulder - start_idx], pattern.r_shoulder_p ), (df_window.index[pattern.break_i - start_idx], pattern.neck_end)]
+            neck = [(df_window.index[pattern.start_i - start_idx], pattern.neck_start), (df_window.index[pattern.break_i - start_idx], pattern.neck_end)]
+
+
+            mpf.plot(df_window, alines=dict(alines=[l0, l1, l2, l3, l4, l5, neck ], colors=['w', 'w', 'w', 'w', 'w', 'w', 'r']), type='candle', style='charles', ax=ax)
+
+    for pattern in ihs_patterns:
+        # Map indices to timestamps
+        print(f"{start_idx}.....{pattern.start_i}......{pattern.break_i}")
+        start_time = df_window.index[pattern.start_i - start_idx] if pattern.start_i >= start_idx and pattern.start_i < end_idx else None
+        break_time = df_window.index[pattern.break_i - start_idx] if pattern.break_i >= start_idx and pattern.break_i < end_idx else None
+        # print(f"{start_time} {break_time}")
+        if start_time and break_time and start_time <= start_time <= end_time and start_time <= break_time <= end_time:
+            plt.style.use('dark_background')
+            l0 = [(df_window.index[pattern.start_i - start_idx], pattern.neck_start), (df_window.index[pattern.l_shoulder - start_idx], pattern.l_shoulder_p)]
+            l1 = [(df_window.index[pattern.l_shoulder - start_idx], pattern.l_shoulder_p), (df_window.index[pattern.l_armpit - start_idx], pattern.l_armpit_p)]
+            l2 = [(df_window.index[pattern.l_armpit - start_idx], pattern.l_armpit_p ), (df_window.index[pattern.head - start_idx], pattern.head_p)]
+            l3 = [(df_window.index[pattern.head - start_idx], pattern.head_p ), (df_window.index[pattern.r_armpit - start_idx], pattern.r_armpit_p)]
+            l4 = [(df_window.index[pattern.r_armpit - start_idx], pattern.r_armpit_p ), (df_window.index[pattern.r_shoulder - start_idx], pattern.r_shoulder_p)]
+            l5 = [(df_window.index[pattern.r_shoulder - start_idx], pattern.r_shoulder_p ), (df_window.index[pattern.break_i - start_idx], pattern.neck_end)]
+            neck = [(df_window.index[pattern.start_i - start_idx], pattern.neck_start), (df_window.index[pattern.break_i - start_idx], pattern.neck_end)]
+
+
+            mpf.plot(df_window, alines=dict(alines=[l0, l1, l2, l3, l4, l5, neck ], colors=['w', 'w', 'w', 'w', 'w', 'w', 'r']), type='candle', style='charles', ax=ax)
 
 # Function to simulate the dynamic candlestick chart with flags and pennants
 def simulate_candlestick_chart_with_flags(df, bull_flags, bear_flags, patterns, window_size=30, interval=0.5):
@@ -138,9 +182,9 @@ def simulate_candlestick_chart_with_flags(df, bull_flags, bear_flags, patterns, 
         )
 
         if patterns:
-            plot_patterns(ax_main, df_window, bull_flags, bear_flags, start_idx, end_idx)
+            plot_flags_pennats(ax_main, df_window, bull_flags, bear_flags, start_idx, end_idx)
         else:
-            plot_patterns(ax_main, df_window, bull_flags, bear_flags, start_idx, end_idx)
+            plot_flags_pennats(ax_main, df_window, bull_flags, bear_flags, start_idx, end_idx)
             start_time = df_window.index[0]
             end_time = df_window.index[-1]
             for flag in bull_flags:
@@ -162,7 +206,7 @@ def simulate_candlestick_chart_with_flags(df, bull_flags, bear_flags, patterns, 
             while len(bull_flag_queue) > 0 and bull_flag_queue[0][2] + 20 == end_idx:
                 price_now = df['Close'].iloc[end_idx - 1]
                 price_then = df['Close'].iloc[end_idx - 21]
-                print(f"{price_now} {price_then}")
+                # print(f"{price_now} {price_then}")
                 if price_now < price_then:
                     isflag = "bearish"
                 else:
@@ -173,10 +217,10 @@ def simulate_candlestick_chart_with_flags(df, bull_flags, bear_flags, patterns, 
             
             
             while len(bear_flag_queue) > 0 and bear_flag_queue[0][2] + 20 == end_idx:
-                print(f"{bear_flag_queue[0][2]} {end_idx}")
+                # print(f"{bear_flag_queue[0][2]} {end_idx}")
                 price_now = df['Close'].iloc[end_idx - 1]
                 price_then = df['Close'].iloc[end_idx - 21]
-                print(f"{price_now} {price_then}")
+                # print(f"{price_now} {price_then}")
                 if price_now < price_then:
                     isflag = "bearish"
                 else:
@@ -186,6 +230,42 @@ def simulate_candlestick_chart_with_flags(df, bull_flags, bear_flags, patterns, 
                 bear_flag_queue.pop(0)
             
             
+
+        plot_placeholder.pyplot(fig)
+        time.sleep(interval)
+
+    plt.ioff()
+    plt.close(fig)
+
+def simulate_candlestick_chart_with_hs(df, hs_patterns, ihs_patterns, patterns, window_size = 50, interval = 0.5):
+    fig, (ax_main, ax_volume) = plt.subplots(
+        nrows=2,
+        ncols=1,
+        gridspec_kw={'height_ratios': [4, 1]},
+        figsize=(10, 8)
+    )
+    fig.tight_layout(pad=3)
+
+    plt.ion()
+    plot_placeholder = st.empty()
+
+    csv = "hs_results.csv"
+    for start_idx in range(len(df) - window_size + 1):
+        end_idx = start_idx + window_size
+        df_window = df.iloc[start_idx:end_idx]
+
+        ax_main.clear()
+        ax_volume.clear()
+
+        mpf.plot(
+            df_window,
+            type='candle',
+            style='charles',
+            ax=ax_main,  # Correct argument for the main chart
+            volume=ax_volume,  # Correct argument for the volume subplot
+        )
+
+        plot_hs_ihs(ax_main, df_window, hs_patterns, ihs_patterns, start_idx, end_idx)
 
         plot_placeholder.pyplot(fig)
         time.sleep(interval)
@@ -237,8 +317,8 @@ if df_processed is not None:
     else:
         # Detect flags and pennants
         data_array = df_filtered['Close'].to_numpy()
+        bull_flags, bear_flags, bull_pennants, bear_pennants = find_flags_pennants_trendline(data_array, 10)
         if pattern_option == 'Flag':
-            bull_flags, bear_flags, bull_pennants, bear_pennants = find_flags_pennants_trendline(data_array, 10)
             # Simulate with detected patterns
             if freq_map[option] == '5m' or freq_map[option] == '15m':
                 simulate_candlestick_chart_with_flags(df_filtered, bull_flags, bear_flags, True, window_size=100, interval=0)
@@ -246,16 +326,16 @@ if df_processed is not None:
                 simulate_candlestick_chart_with_flags(df_filtered, bull_flags, bear_flags, False, window_size=100, interval=0)
         
         elif pattern_option == 'Pennant':
-            bull_flags, bear_flags, bull_pennants, bear_pennants = find_flags_pennants_trendline(data_array, 10)
-            print(bull_pennants)
-            print(bear_pennants)
-            # Simulate with detected patterns
             if freq_map[option] == '5m' or freq_map[option] == '15m':
                 simulate_candlestick_chart_with_flags(df_filtered, bull_pennants, bear_pennants, True, window_size=100, interval=0)
             else:
                 simulate_candlestick_chart_with_flags(df_filtered, bull_pennants, bear_pennants, False, window_size=100, interval=0)
         
         else:
-            pass
-
-    
+            hs_patterns, ihs_patterns = find_hs_patterns(data_array, 4, early_find=True)
+            print(hs_patterns)
+            print(ihs_patterns)
+            if freq_map[option] == '5m' or freq_map[option] == '15m':
+                simulate_candlestick_chart_with_hs(df_filtered, hs_patterns, ihs_patterns, True, window_size=100, interval=0)
+            else:
+                simulate_candlestick_chart_with_hs(df_filtered, hs_patterns, ihs_patterns, False, window_size=100, interval=0)

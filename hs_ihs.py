@@ -460,7 +460,8 @@ if __name__ == '__main__':
     dat_slice = data['close'].to_numpy()
 
     hs_patterns, ihs_patterns = find_hs_patterns(dat_slice, 6, early_find=False)
-
+    print(hs_patterns)
+    print(ihs_patterns)
     hs_df = pd.DataFrame()
     ihs_df = pd.DataFrame()
 
