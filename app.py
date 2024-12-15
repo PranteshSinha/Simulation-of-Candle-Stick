@@ -6,7 +6,6 @@ from io import StringIO
 import time
 from datetime import datetime
 import numpy as np
-# pip install pricehub
 from pricehub import get_ohlc
 from collections import defaultdict
 
@@ -75,7 +74,7 @@ def plot_flags_pennats(ax, df_window, bull_flags, bear_flags, start_idx, end_idx
     end_time = df_window.index[-1]
     for flag in bull_flags:
         # Map indices to timestamps
-        print(f"{start_idx}.....{flag.base_x}......{flag.conf_x}")
+        # print(f"{start_idx}.....{flag.base_x}......{flag.conf_x}")
         base_time = df_window.index[flag.base_x - start_idx] if flag.base_x >= start_idx and flag.base_x < end_idx else None
         conf_time = df_window.index[flag.conf_x - start_idx] if flag.conf_x >= start_idx and flag.conf_x < end_idx else None
         # print(f"{base_time} {conf_time}")
@@ -92,7 +91,7 @@ def plot_flags_pennats(ax, df_window, bull_flags, bear_flags, start_idx, end_idx
 
     for flag in bear_flags:
         # Map indices to timestamps
-        print(f"{start_idx}.....{flag.base_x}......{flag.conf_x}")
+        # print(f"{start_idx}.....{flag.base_x}......{flag.conf_x}")
         base_time = df_window.index[flag.base_x - start_idx] if flag.base_x >= start_idx and flag.base_x < end_idx else None
         conf_time = df_window.index[flag.conf_x - start_idx] if flag.conf_x >= start_idx and flag.conf_x < end_idx else None
         # print(f"{base_time} {conf_time}")
@@ -114,7 +113,7 @@ def plot_hs_ihs(ax, df_window, hs_patterns, ihs_patterns, start_idx, end_idx):
     end_time = df_window.index[-1]
     for pattern in hs_patterns:
         # Map indices to timestamps
-        print(f"{start_idx}.....{pattern.start_i}......{pattern.break_i}")
+        # print(f"{start_idx}.....{pattern.start_i}......{pattern.break_i}")
         start_time = df_window.index[pattern.start_i - start_idx] if pattern.start_i >= start_idx and pattern.start_i < end_idx else None
         break_time = df_window.index[pattern.break_i - start_idx] if pattern.break_i >= start_idx and pattern.break_i < end_idx else None
         # print(f"{start_time} {break_time}")
@@ -133,7 +132,7 @@ def plot_hs_ihs(ax, df_window, hs_patterns, ihs_patterns, start_idx, end_idx):
 
     for pattern in ihs_patterns:
         # Map indices to timestamps
-        print(f"{start_idx}.....{pattern.start_i}......{pattern.break_i}")
+        # print(f"{start_idx}.....{pattern.start_i}......{pattern.break_i}")
         start_time = df_window.index[pattern.start_i - start_idx] if pattern.start_i >= start_idx and pattern.start_i < end_idx else None
         break_time = df_window.index[pattern.break_i - start_idx] if pattern.break_i >= start_idx and pattern.break_i < end_idx else None
         # print(f"{start_time} {break_time}")
@@ -149,6 +148,36 @@ def plot_hs_ihs(ax, df_window, hs_patterns, ihs_patterns, start_idx, end_idx):
 
 
             mpf.plot(df_window, alines=dict(alines=[l0, l1, l2, l3, l4, l5, neck ], colors=['w', 'w', 'w', 'w', 'w', 'w', 'r']), type='candle', style='charles', ax=ax)
+
+def plot_trendlines(ax_main, df_window, support_coefs, resist_coefs, start_idx, end_idx, lookback):
+    support_slope = support_coefs[0]
+    resist_slope = resist_coefs[0]
+    support_intercept = support_coefs[1]
+    resist_intercept = resist_coefs[1]
+    
+    # Create the x-values based on the lookback period
+    x_values = np.arange(lookback)
+    
+    # Calculate the y-values for the support and resistance lines
+    support_y = support_slope * x_values + support_intercept
+    resist_y = resist_slope * x_values + resist_intercept
+    
+    # Convert x_values to datetime indices, starting from the beginning of the window
+    time_values = df_window.index[-lookback:]
+    
+    support_line = [(time_values[0], support_y[0]), (time_values[-1], support_y[-1])]
+    resist_line = [(time_values[0], resist_y[0]), (time_values[-1], resist_y[-1])]
+    
+    mpf.plot(
+        df_window,
+        type='candle',
+        style='charles',
+        ax=ax_main,  # Main axis for the candle chart
+        alines=dict(
+            alines=[support_line, resist_line],  # Add the support and resistance trendlines
+            colors=['g', 'r']  # Green for support, Red for resistance
+        )
+    )
 
 # Function to simulate the dynamic candlestick chart with flags and pennants
 def simulate_candlestick_chart_with_flags(df, bull_flags, bear_flags, patterns, window_size=30, interval=0.5):
@@ -273,6 +302,45 @@ def simulate_candlestick_chart_with_hs(df, hs_patterns, ihs_patterns, patterns, 
     plt.ioff()
     plt.close(fig)
 
+def simulate_candlestick_chart_with_trendlines(df, lookback,  window_size = 50, interval = 0.5):
+    fig, (ax_main, ax_volume) = plt.subplots(
+        nrows=2,
+        ncols=1,
+        gridspec_kw={'height_ratios': [4, 1]},
+        figsize=(10, 8)
+    )
+    fig.tight_layout(pad=3)
+
+    plt.ion()
+    plot_placeholder = st.empty()
+
+    for start_idx in range(len(df) - window_size + 1):
+        end_idx = start_idx + window_size
+        df_window = df.iloc[start_idx:end_idx]
+
+        ax_main.clear()
+        ax_volume.clear()
+
+        # mpf.plot(
+        #     df_window,
+        #     type='candle',
+        #     style='charles',
+        #     ax=ax_main,  # Correct argument for the main chart
+        #     volume=ax_volume,  # Correct argument for the volume subplot
+        # )
+        high = df_window['High'].iloc[-lookback:]
+        low = df_window['Low'].iloc[-lookback:]
+        close = df_window['Close'].iloc[-lookback:]
+        # print(f"{end_idx} {lookback} {len(high)} {len(low)} {len(close)}")
+        support_coefs, resist_coefs = fit_trendlines_high_low(high, low, close)
+        plot_trendlines(ax_main, df_window, support_coefs, resist_coefs, start_idx, end_idx, lookback)
+
+        plot_placeholder.pyplot(fig)
+        time.sleep(interval)
+
+    plt.ioff()
+    plt.close(fig)
+
 # Streamlit UI
 st.title("Bitcoin Candlestick Chart with Flags and Pennants")
 
@@ -294,7 +362,7 @@ st.title("Pattern Detection")
 # Dropdown for pattern selection
 pattern_option = st.selectbox(
     "Select a Pattern",
-    ["Flag", "Pennant", "Head and Shoulders"]
+    ["Flag", "Pennant", "Head and Shoulders", "Trendlines"]
 )
 
 # Display selected pattern
@@ -331,11 +399,12 @@ if df_processed is not None:
             else:
                 simulate_candlestick_chart_with_flags(df_filtered, bull_pennants, bear_pennants, False, window_size=100, interval=0)
         
-        else:
-            hs_patterns, ihs_patterns = find_hs_patterns(data_array, 4, early_find=True)
-            print(hs_patterns)
-            print(ihs_patterns)
+        elif pattern_option == "Head and Shoulders":
+            hs_patterns, ihs_patterns = find_hs_patterns(data_array, 6, early_find=True)
             if freq_map[option] == '5m' or freq_map[option] == '15m':
                 simulate_candlestick_chart_with_hs(df_filtered, hs_patterns, ihs_patterns, True, window_size=100, interval=0)
             else:
                 simulate_candlestick_chart_with_hs(df_filtered, hs_patterns, ihs_patterns, False, window_size=100, interval=0)
+        
+        else:
+            simulate_candlestick_chart_with_trendlines(df_filtered, 30, window_size=100, interval=0)
